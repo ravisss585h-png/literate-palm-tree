@@ -1,0 +1,60 @@
+name: Android Debug APK (Ultra Stable)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      # HARD FIX for www + index.html
+      - name: Prepare web assets
+        run: |
+          echo "Preparing web assets..."
+          mkdir -p www
+
+          if [ -f index.html ]; then
+            cp index.html www/index.html
+          fi
+
+          if [ ! -f www/index.html ]; then
+            echo "ERROR: www/index.html missing"
+            exit 1
+          fi
+
+          ls -la www
+
+      - name: Ensure Capacitor CLI
+        run: npx cap --version
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      # ✅ FIXED LINE (NO --no-open)
+      - name: Capacitor Sync
+        run: npx cap sync android
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bharat-News-Vault-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
