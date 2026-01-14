@@ -1,0 +1,9 @@
+{
+  "appId": "com.bharatnewsvault.app",
+  "appName": "Bharat News Vault",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

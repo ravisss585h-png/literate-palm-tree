@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bharat News Vault</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body{background:#f1f5f9;font-family:system-ui}
+.tab-active{border-bottom:3px solid #1e40af;color:#1e40af;font-weight:700}
+.card{transition:transform .15s}
+.card:active{transform:scale(.97)}
+
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:300;
+}
+.modal{
+  background:#fff;
+  width:90%;
+  max-width:320px;
+  border-radius:14px;
+  padding:16px;
+}
+.option{
+  padding:12px;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  margin-top:10px;
+  text-align:center;
+  font-weight:600;
+}
+.option:active{background:#e5e7eb}
+
+/* Pull to refresh */
+#pullIndicator{
+  position:fixed;
+  top:-60px;left:0;right:0;height:60px;
+  background:#1e40af;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:600;
+  transition:top .25s;
+  z-index:200;
+}
+</style>
+</head>
+
+<body class="flex flex-col min-h-screen">
+
+<div id="pullIndicator">↓ Release to refresh</div>
+
+<header class="bg-blue-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow">
+  <button onclick="handleBack()" class="text-xl">⬅</button>
+  <h1 class="font-black text-lg">Bharat News Vault</h1>
+  <div class="flex gap-4 text-lg">
+    <button onclick="openLanguage()">🌐</button>
+    <button onclick="openEPaper()">📰</button>
+  </div>
+</header>
+
+<nav class="flex gap-5 px-4 py-3 bg-white border-b overflow-x-auto text-sm font-semibold">
+  <button class="tab-active" onclick="fetchNews('top',this)">Top</button>
+  <button onclick="fetchNews('national',this)">National</button>
+  <button onclick="fetchNews('international',this)">International</button>
+  <button onclick="fetchNews('bollywood',this)">Bollywood</button>
+  <button onclick="fetchNews('sports',this)">Sports</button>
+  <button onclick="fetchNews('fun',this)">Fun</button>
+</nav>
+
+<main id="feed" class="p-4 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 flex-grow"></main>
+
+<div id="langModal" class="overlay">
+  <div class="modal">
+    <h2 class="font-bold text-center">Select Language</h2>
+    <div class="option" onclick="setLanguage('en')">English</div>
+    <div class="option" onclick="setLanguage('hi')">Hindi</div>
+    <div class="option" onclick="setLanguage('mr')">Marathi</div>
+  </div>
+</div>
+
+<div id="epaperModal" class="overlay">
+  <div class="modal">
+    <h2 class="font-bold text-center">Choose E-Paper</h2>
+    <div class="option" onclick="openLink('https://epaper.lokmat.com/')">Lokmat</div>
+    <div class="option" onclick="openLink('https://epaper.esakal.com/')">Sakal</div>
+    <div class="option" onclick="openLink('https://epaper.timesgroup.com/')">Times of India</div>
+  </div>
+</div>
+
+<script>
+const API_KEY="bb8d3244fa70cf565640a6021a4b37a3";
+let currentCategory="top", currentButton=null;
+let lang=localStorage.getItem("lang");
+
+if(!lang){
+  document.getElementById("langModal").style.display="flex";
+}
+
+function handleBack(){
+  if(langModal.style.display==="flex"){langModal.style.display="none";return;}
+  if(epaperModal.style.display==="flex"){epaperModal.style.display="none";return;}
+  if(history.length>1){history.back();}
+  else if(confirm("Exit the app?")) navigator.app?.exitApp?.();
+}
+
+function openLanguage(){langModal.style.display="flex";}
+function setLanguage(l){localStorage.setItem("lang",l);location.reload();}
+function openEPaper(){epaperModal.style.display="flex";}
+function openLink(url){epaperModal.style.display="none";window.open(url,"_blank");}
+
+const feed=document.getElementById("feed");
+
+function setActive(el){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("tab-active"));
+  el?.classList.add("tab-active");
+}
+
+async function fetchNews(type,el){
+  currentCategory=type;
+  if(el){currentButton=el;setActive(el);}
+  feed.innerHTML=`<div class="col-span-full text-center py-20">Loading…</div>`;
+
+  const queries={
+    top:"India",
+    national:"India",
+    international:"world",
+    bollywood:"Bollywood Hindi film",
+    sports:"sports cricket football",
+    fun:"entertainment viral funny"
+  };
+
+  const makeUrl=(q,l)=>`https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&lang=${l}&max=10&sortby=publishedAt&token=${API_KEY}`;
+
+  try{
+    let r=await fetch(makeUrl(queries[type],lang));
+    let d=await r.json();
+
+    if(!d.articles || d.articles.length===0){
+      r=await fetch(makeUrl(queries[type],"en"));
+      d=await r.json();
+    }
+    render(d.articles||[]);
+  }catch{
+    feed.innerHTML=`<p class="col-span-full text-center text-red-600">News service unavailable</p>`;
+  }
+}
+
+function render(list){
+  feed.innerHTML="";
+  if(!list.length){
+    feed.innerHTML=`<p class="col-span-full text-center">No news available</p>`;
+    return;
+  }
+  list.forEach(n=>{
+    if(!n.image) return;
+    feed.innerHTML+=`
+    <div class="card bg-white rounded-xl shadow-sm overflow-hidden"
+      onclick="window.open('${n.url}','_blank')">
+      <img src="${n.image}" class="h-48 w-full object-cover">
+      <div class="p-4">
+        <span class="text-xs font-semibold text-blue-700">${n.source.name}</span>
+        <h2 class="font-semibold mt-1">${n.title}</h2>
+        <p class="text-xs text-gray-400 mt-2">${new Date(n.publishedAt).toDateString()}</p>
+      </div>
+    </div>`;
+  });
+}
+
+/* Pull to refresh */
+let startY=0,pulling=false;
+const indicator=document.getElementById("pullIndicator");
+
+window.addEventListener("touchstart",e=>{
+  if(window.scrollY===0){startY=e.touches[0].clientY;pulling=true;}
+});
+window.addEventListener("touchmove",e=>{
+  if(!pulling) return;
+  if(e.touches[0].clientY-startY>70) indicator.style.top="0px";
+});
+window.addEventListener("touchend",()=>{
+  if(pulling){indicator.style.top="-60px";fetchNews(currentCategory,currentButton);}
+  pulling=false;
+});
+
+currentButton=document.querySelector("nav button");
+fetchNews("top",currentButton);
+</script>
+
+</body>
+</html>
